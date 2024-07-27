@@ -2250,7 +2250,7 @@
 		)
 		(uuid "f576d351-883c-478d-aa51-ee6d9dc26cf9")
 	)
-	(global_label "LED3"
+	(global_label "LED2"
 		(shape input)
 		(at 69.85 115.57 0)
 		(effects
@@ -2293,7 +2293,7 @@
 			)
 		)
 	)
-	(global_label "LED4"
+	(global_label "LED2"
 		(shape input)
 		(at 69.85 77.47 0)
 		(fields_autoplaced yes)
@@ -2315,7 +2315,7 @@
 			)
 		)
 	)
-	(global_label "LED5"
+	(global_label "LED1"
 		(shape input)
 		(at 69.85 62.23 0)
 		(fields_autoplaced yes)
@@ -2337,7 +2337,7 @@
 			)
 		)
 	)
-	(global_label "LED1"
+	(global_label "LED5"
 		(shape input)
 		(at 69.85 69.85 0)
 		(fields_autoplaced yes)
@@ -2359,7 +2359,7 @@
 			)
 		)
 	)
-	(global_label "LED1"
+	(global_label "LED5"
 		(shape input)
 		(at 69.85 110.49 0)
 		(fields_autoplaced yes)
@@ -2425,7 +2425,7 @@
 			)
 		)
 	)
-	(global_label "LED3"
+	(global_label "LED4"
 		(shape input)
 		(at 69.85 123.19 0)
 		(fields_autoplaced yes)
@@ -2491,7 +2491,7 @@
 			)
 		)
 	)
-	(global_label "LED2"
+	(global_label "LED4"
 		(shape input)
 		(at 69.85 72.39 0)
 		(fields_autoplaced yes)
@@ -2513,7 +2513,7 @@
 			)
 		)
 	)
-	(global_label "LED2"
+	(global_label "LED3"
 		(shape input)
 		(at 69.85 102.87 0)
 		(fields_autoplaced yes)
@@ -2535,7 +2535,7 @@
 			)
 		)
 	)
-	(global_label "LED2"
+	(global_label "LED4"
 		(shape input)
 		(at 69.85 92.71 0)
 		(fields_autoplaced yes)
@@ -2579,7 +2579,7 @@
 			)
 		)
 	)
-	(global_label "LED5"
+	(global_label "LED4"
 		(shape input)
 		(at 69.85 113.03 0)
 		(fields_autoplaced yes)
@@ -2623,7 +2623,7 @@
 			)
 		)
 	)
-	(global_label "LED4"
+	(global_label "LED1"
 		(shape input)
 		(at 69.85 138.43 0)
 		(fields_autoplaced yes)
@@ -2666,7 +2666,7 @@
 			)
 		)
 	)
-	(global_label "LED1"
+	(global_label "LED2"
 		(shape input)
 		(at 69.85 82.55 0)
 		(fields_autoplaced yes)
@@ -2688,7 +2688,7 @@
 			)
 		)
 	)
-	(global_label "LED5"
+	(global_label "LED2"
 		(shape input)
 		(at 69.85 135.89 0)
 		(effects
@@ -2709,7 +2709,7 @@
 			)
 		)
 	)
-	(global_label "LED4"
+	(global_label "LED1"
 		(shape input)
 		(at 69.85 97.79 0)
 		(fields_autoplaced yes)
@@ -2775,7 +2775,7 @@
 			)
 		)
 	)
-	(global_label "LED4"
+	(global_label "LED1"
 		(shape input)
 		(at 69.85 118.11 0)
 		(fields_autoplaced yes)
@@ -2862,7 +2862,7 @@
 			)
 		)
 	)
-	(global_label "LED1"
+	(global_label "LED5"
 		(shape input)
 		(at 69.85 130.81 0)
 		(fields_autoplaced yes)
@@ -2906,7 +2906,7 @@
 			)
 		)
 	)
-	(global_label "LED2"
+	(global_label "LED3"
 		(shape input)
 		(at 69.85 133.35 0)
 		(fields_autoplaced yes)
