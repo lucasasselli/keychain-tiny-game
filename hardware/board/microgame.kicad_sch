@@ -3895,7 +3895,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "BS-7"
+		(property "Value" "Keystone 3034"
 			(at 31.75 34.9884 0)
 			(effects
 				(font
@@ -4502,7 +4502,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "4576ae34-e3a9-4dec-b212-cb1f4f4c44d1")
 		(property "Reference" "U1"
 			(at 105.41 35.5599 0)
@@ -4513,7 +4512,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "ATTINY85-20SU"
+		(property "Value" "ATTINY25-20SSU"
 			(at 105.41 38.0999 0)
 			(effects
 				(font

@@ -6906,7 +6906,7 @@
 				)
 			)
 		)
-		(property "Value" "ATTINY85-20SU"
+		(property "Value" "ATTINY25-20SSU"
 			(at 0 4.25 0)
 			(layer "F.Fab")
 			(uuid "be94ea01-8738-4e32-bf31-11ed2c203f2a")
@@ -7766,7 +7766,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "BS-7"
+		(property "Value" "Keystone 3034"
 			(at 0 -7.842529 0)
 			(layer "B.Fab")
 			(uuid "5faa6b02-3f16-4608-b765-84d0266dbf63")
