@@ -3,8 +3,8 @@ find_program(SIMAVR
 		simavr
 
 	PATHS
-		/usr/bin/
 		$ENV{SIMAVR_HOME}
+        /usr/bin/
 )
 
 if(NOT SIMAVR)
@@ -18,6 +18,7 @@ find_path(SIMAVR_INCLUDE_DIR
 		"sim_avr.h"
 
 	PATHS
+	$ENV{SIMAVR_HOME}/include/simavr
     /usr/include/simavr
 	/usr/local/include/simavr
 )

@@ -10,7 +10,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <boost/program_options.hpp>
 #include <cwchar>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -27,6 +29,9 @@ extern "C" {
 #include "sim_io.h"
 #include "sim_vcd_file.h"
 
+using namespace boost;
+using namespace std;
+
 #define GET_BIT(x, pos) ((x >> (pos)) & 1)
 
 button_t button;
@@ -34,10 +39,10 @@ int do_button_press = 0;
 avr_t *avr = NULL;
 avr_vcd_t vcd_file;
 
-using namespace std;
-
-uint8_t pin_state = 0;  // current port B
+uint8_t portb_state = 0;
+uint8_t ddrb_state = 0;
 bool led_state[16];
+bool tui;
 
 // GUI
 const int WIN_OFFSET = 2;
@@ -51,13 +56,12 @@ WINDOW *logs_win;
 
 vector<string> logs;
 
+bool do_screen_update = false;
+
 void ncurses_init() {
     initscr();
-    //  cbreak();
     nodelay(stdscr, true);
     noecho();
-    /*intrflush(stdscr, false);*/
-    /*keypad(stdscr, true);*/
     curs_set(0);
     clear();
 }
@@ -112,28 +116,15 @@ void log(const char *format, ...) {
 
     va_end(args);
 
-    logs.push_back(std::string(buffer.data(), size));
+    if (tui) {
+        logs.push_back(std::string(buffer.data(), size));
+        do_screen_update = true;
+    } else {
+        cout << buffer.data() << std::endl;
+    }
 }
 
-bool ncurses_loop() {
-    uint32_t key = getch();
-    switch ((char)key) {
-        case 'q':
-        case 0x1f:  // escape
-            return false;
-        case ' ':
-            do_button_press++;  // pass the message to the AVR thread
-            break;
-        case 'r':
-            log("Starting VCD trace\n");
-            avr_vcd_start(&vcd_file);
-            break;
-        case 's':
-            log("Stopping VCD trace\n");
-            avr_vcd_stop(&vcd_file);
-            break;
-    }
-
+void ncurses_update() {
     // Board window
     box(board_win, 0, 0);
 
@@ -152,8 +143,69 @@ bool ncurses_loop() {
 
     // refreshing the window
     wrefresh(logs_win);
+}
+
+bool main_loop() {
+    avr_run(avr);
+
+    uint32_t key = getch();
+    switch ((char)key) {
+        case 'q':
+        case 0x1f:  // escape
+            return false;
+        case ' ':
+            do_button_press++;  // pass the message to the AVR thread
+            break;
+        case 'r':
+            log("Starting VCD trace\n");
+            avr_vcd_start(&vcd_file);
+            break;
+        case 's':
+            log("Stopping VCD trace\n");
+            avr_vcd_stop(&vcd_file);
+            break;
+    }
+
+    if (do_screen_update && tui) {
+        ncurses_update();
+        do_screen_update = false;
+    }
 
     return true;
+}
+
+void update_led_state(void) {
+    int a = 0;
+    for (int i = 0; i < 16; i++) {
+        int c = (i / 4);
+        int x = (i % 4);
+
+        if (x == 0) {
+            a = 0;
+        }
+
+        if (a == c) a++;
+
+        led_state[i] = GET_BIT(portb_state, c + 1) && !GET_BIT(portb_state, a + 1) && GET_BIT(ddrb_state, c + 1) && GET_BIT(ddrb_state, a + 1);
+
+        if (led_state[i]) {
+            log("LED %d on!", i);
+        }
+
+        a++;
+    }
+
+    do_screen_update = true;
+}
+
+void portb_callback(struct avr_irq_t *irq, uint32_t value, void *param) {
+    portb_state = (portb_state & ~(1 << irq->irq)) | (value << irq->irq);
+    update_led_state();
+}
+
+void ddrb_callback(struct avr_irq_t *irq, uint32_t value, void *param) {
+    portb_state = (ddrb_state & ~(1 << irq->irq)) | (value << irq->irq);
+    update_led_state();
 }
 
 static void *avr_run_thread(void *param) {
@@ -167,37 +219,44 @@ static void *avr_run_thread(void *param) {
             log("Button pressed");
             button_press(&button, 1000000);
         }
-
-        // Handle PORTB
-        avr_ioport_state_t state;
-        avr_ioctl(avr, AVR_IOCTL_IOPORT_GETSTATE('B'), &state);
-
-        int a = 0;
-        for (int i = 0; i < 16; i++) {
-            int c = (i / 4);
-            int x = (i % 4);
-
-            if (x == 0) {
-                a = 0;
-            }
-
-            if (a == c) a++;
-
-            led_state[i] = GET_BIT(state.port, c + 1) && !GET_BIT(state.port, a + 1) && GET_BIT(state.ddr, c + 1) && GET_BIT(state.ddr, a + 1);
-
-            if (led_state[i]) {
-                // log("LED %d on!", i);
-            }
-
-            a++;
-        }
     }
     return NULL;
 }
 
 int main(int argc, char *argv[]) {
-    elf_firmware_t f = {{0}};
-    elf_read_firmware(argv[1], &f);
+    // Command line
+    string path;
+
+    program_options::options_description desc("Allowed options");
+    /* clang-format off */
+    desc.add_options()("help,h", "produce help message")
+        ("path", program_options::value<std::string>(&path)->required(), "path to the file")
+        ("tui", program_options::bool_switch(&tui), "enable TUI mode");
+    /* clang-format on */
+
+    program_options::positional_options_description p;
+    p.add("path", 1);
+
+    program_options::variables_map vm;
+    try {
+        program_options::store(program_options::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+
+        if (vm.count("help")) {
+            std::cout << desc << "\n";
+            return 0;
+        }
+
+        program_options::notify(vm);
+    } catch (const program_options::error &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        std::cerr << desc << "\n";
+        return 1;
+    }
+
+    // Setup SimAVR
+    elf_firmware_t f;
+    elf_read_firmware(path.c_str(), &f);
+    f.frequency = 1000000;
 
     avr = avr_make_mcu_by_name("attiny85");
     if (!avr) {
@@ -212,6 +271,11 @@ int main(int argc, char *argv[]) {
 
     // "connect" the output irq of the button to the port pin of the AVR
     avr_connect_irq(button.irq + IRQ_BUTTON_OUT, avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), 0));
+
+    for (int i = 0; i < 8; i++) {
+        avr_irq_register_notify(avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), i), portb_callback, NULL);
+    }
+    // avr_irq_register_notify(avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), IOPORT_IRQ_DIRECTION_ALL), ddrb_callback, NULL);
 
     // even if not setup at startup, activate gdb if crashing
     avr->gdb_port = 1234;
@@ -235,17 +299,21 @@ int main(int argc, char *argv[]) {
     avr_raise_irq(button.irq + IRQ_BUTTON_OUT, 1);
 
     // the AVR run on it's own thread. it even allows for debugging!
-    pthread_t run;
-    pthread_create(&run, NULL, avr_run_thread, NULL);
+    // pthread_t run;
+    // pthread_create(&run, NULL, avr_run_thread, NULL);
 
     // GUI
-    ncurses_init();
+    if (tui) {
+        ncurses_init();
+        board_win = newwin(WIN_BOARD_Y, 50, WIN_OFFSET, 10);
+        logs_win = newwin(WIN_LOG_Y, WIN_LOG_X, WIN_BOARD_Y + WIN_OFFSET, 10);
+    }
 
-    board_win = newwin(WIN_BOARD_Y, 50, WIN_OFFSET, 10);
-    logs_win = newwin(WIN_LOG_Y, WIN_LOG_X, WIN_BOARD_Y + WIN_OFFSET, 10);
+    while (main_loop());
 
-    while (ncurses_loop());
-    ncurses_stop();
+    if (tui) {
+        ncurses_stop();
+    }
 
     return EXIT_SUCCESS;
 }

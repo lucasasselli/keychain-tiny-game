@@ -4,6 +4,10 @@ project(microgame_fw C CXX ASM)
 
 set(CROSS_COMPILE avr-)
 
+# SimAVR doesn't like debug firmware
+set(CMAKE_C_FLAGS_DEBUG "") 
+set(CMAKE_C_FLAGS_RELEASE "")
+
 set(CMAKE_ASM_COMPILER ${CROSS_COMPILE}gcc)
 set(CMAKE_C_COMPILER ${CROSS_COMPILE}gcc)
 set(CMAKE_CXX_COMPILER ${CROSS_COMPILE}g++)
