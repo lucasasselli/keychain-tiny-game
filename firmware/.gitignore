@@ -1,6 +1,5 @@
-build
-*.o
+build*
 *.elf
-*.axf
+*.so
 compile_commands.json
 .cache
