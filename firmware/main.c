@@ -10,7 +10,7 @@
 
 #define LED_CNT 16
 
-#define BTN_DEBOUNCE_NUM 100
+#define BTN_DEBOUNCE_NUM 10
 #define BTN_PIN PB0
 
 #define CURSOR_TIME_BASE 800
@@ -19,6 +19,8 @@
 #define INIT_SPIN_NUM 3
 #define FAIL_TIME 8000
 #define GAME_TIMEOUT 40000
+#define GAME_MAX_STAGES 45
+#define WIN_TIME 8000
 
 const uint8_t cplex_pins[LED_CNT][2] = {
     // Group 0
@@ -50,14 +52,15 @@ typedef enum {
     GAME_INIT,
     GAME_ACTIVE,
     GAME_FAIL,
+    GAME_WIN
 } game_state_t;
 
 game_state_t game_state;  // Current game state
 int game_init_cnt;        // Number of loops furing init animation
-int game_stage;           // Current stage
-int game_target;          // Current target
-int game_cursor;          // Current position
-int game_dir;
+int game_stage;           // Stage
+int game_target;          // Target light position
+int game_cursor;          // Cursor light position
+int game_dir;             // Cursor direction
 
 int idle_time = 0;
 int timer_ovf_cnt = 0;
@@ -98,10 +101,15 @@ void game_start() {
 }
 
 void game_stage_next() {
-    game_state = GAME_ACTIVE;
-    game_stage++;        // Increase the stage
     game_dir ^= 1;       // Change direction
     game_target_rand();  // Pick a random target
+
+    game_stage++;  // Increase the stage
+    if (game_stage > GAME_MAX_STAGES) {
+        game_state = GAME_WIN;
+    } else {
+        game_state = GAME_ACTIVE;
+    }
 }
 
 void led_off() {
@@ -110,9 +118,6 @@ void led_off() {
 }
 
 void led_set_index(int i) {
-    // FIXME:
-    if (i % 4 == 3) return;
-
     uint8_t val = PORTB & (1 << BTN_PIN);
     uint8_t dir = DDRB & (1 << BTN_PIN);
 
@@ -232,7 +237,7 @@ void game_do_active() {
 }
 
 void game_do_fail() {
-    if (timer_ovf_cnt > (FAIL_TIME)) {
+    if (timer_ovf_cnt > FAIL_TIME) {
         game_init();
 
         // Reset IRQ counter
@@ -241,6 +246,23 @@ void game_do_fail() {
 
     // Program the LED
     if (GET_BIT(timer_ovf_cnt, 7)) {
+        led_set_index(game_cursor);
+    } else {
+        led_off();
+    }
+}
+
+void game_do_win() {
+    if (timer_ovf_cnt > WIN_TIME) {
+        game_init();
+
+        // Reset IRQ counter
+        timer_ovf_cnt = 0;
+    }
+
+    // Program the LED
+    if (GET_BIT(timer_ovf_cnt, 7)) {
+        cursor_next();
         led_set_index(game_cursor);
     } else {
         led_off();
@@ -267,6 +289,10 @@ int main() {
 
                 case GAME_FAIL:
                     game_do_fail();
+                    break;
+
+                case GAME_WIN:
+                    game_do_win();
                     break;
             }
 
