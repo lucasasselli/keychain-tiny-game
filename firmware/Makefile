@@ -1,6 +1,5 @@
 DEVICE     = attiny25
 PROGRAMMER = stk500v1
-PORT	   = /dev/serial/by-id/usb-Flipper_Devices_Inc._Onrhira_flip_Onrhira-if02
 BAUD       = 9600
 FILENAME   = main
 COMPILE    = avr-gcc -Wall -Os -mmcu=$(DEVICE)

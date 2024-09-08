@@ -8,18 +8,16 @@
 #define SET_BIT(x, pos) ((x) |= (BIT(pos)))
 #define CLEAR_BIT(x, pos) ((x) &= ~(BIT(pos)))
 
-#define PIN_BTN PB0
 #define LED_CNT 16
 
-#define F_CLK 1000000UL
-#define TMR_OVF_CNT 256UL
-#define MS_TO_OVF(x) ((x * F_CLK) / (TMR_OVF_CNT * 1000UL))
+#define BTN_DEBOUNCE_NUM 100
+#define BTN_PIN PB0
 
-#define CURSOR_TIME_BASE 2000
+#define CURSOR_TIME_BASE 800
 #define CURSOR_TIME_STAGE_DELTA 16
-#define SPIN_TIME 100
-#define HIT_TIME_BASE 8000
-#define HIT_TIME_STAGE_DELTA 64
+#define INIT_SPIN_TIME 100
+#define INIT_SPIN_NUM 3
+#define FAIL_TIME 8000
 #define GAME_TIMEOUT 40000
 
 const uint8_t cplex_pins[LED_CNT][2] = {
@@ -51,28 +49,25 @@ const uint8_t cplex_pins[LED_CNT][2] = {
 typedef enum {
     GAME_INIT,
     GAME_ACTIVE,
-    GAME_HIT,
+    GAME_FAIL,
 } game_state_t;
 
 game_state_t game_state;  // Current game state
+int game_init_cnt;        // Number of loops furing init animation
 int game_stage;           // Current stage
 int game_target;          // Current target
 int game_cursor;          // Current position
+int game_dir;
 
 int idle_time = 0;
 int timer_ovf_cnt = 0;
 
-#define BTN_DEBOUNCE_NUM 16
 int btn_pressed_cnt;
+int btn_state;
+int btn_old_state;
 
 void game_target_rand() {
     game_target = rand() % LED_CNT;  // Pick a new target
-}
-
-void game_stage_next() {
-    game_state = GAME_ACTIVE;
-    game_stage++;        // Increase the stage
-    game_target_rand();  // Pick a random target
 }
 
 void game_init() {
@@ -83,33 +78,43 @@ void game_init() {
     TCNT0 = 0;
 
     // Configure button pin as input with pull-up resistor
-    DDRB &= ~(1 << PIN_BTN);
-    SET_BIT(PORTB, PIN_BTN);
+    DDRB &= ~(1 << BTN_PIN);
+    SET_BIT(PORTB, BTN_PIN);
 
     // Setup game
     game_state = GAME_INIT;
-    game_cursor = 15;
+    game_init_cnt = 0;
+    game_cursor = 0;
+    game_dir = 0;
     idle_time = 0;
     timer_ovf_cnt = 0;
+
+    game_target_rand();  // Pick a random target
 }
 
 void game_start() {
     game_state = GAME_ACTIVE;
-    game_stage = 0;      // Start from stage 0
+    game_stage = 0;  // Start from stage 0
+}
+
+void game_stage_next() {
+    game_state = GAME_ACTIVE;
+    game_stage++;        // Increase the stage
+    game_dir ^= 1;       // Change direction
     game_target_rand();  // Pick a random target
 }
 
 void led_off() {
-    PORTB &= (1 << PIN_BTN);
-    DDRB &= (1 << PIN_BTN);
+    PORTB &= (1 << BTN_PIN);
+    DDRB &= (1 << BTN_PIN);
 }
 
 void led_set_index(int i) {
     // FIXME:
     if (i % 4 == 3) return;
 
-    uint8_t val = PORTB & (1 << PIN_BTN);
-    uint8_t dir = DDRB & (1 << PIN_BTN);
+    uint8_t val = PORTB & (1 << BTN_PIN);
+    uint8_t dir = DDRB & (1 << BTN_PIN);
 
     SET_BIT(val, cplex_pins[i][1]);
     SET_BIT(dir, cplex_pins[i][1]);
@@ -127,7 +132,7 @@ void sleep() {
 
     // Set button
     DDRB = 0;  // All inputs
-    PORTB = (1 << PIN_BTN);
+    PORTB = (1 << BTN_PIN);
 
     sleep_enable();  // Sets the Sleep Enable bit in the MCUCR Register (SE BIT)
     sei();           // Enable interrupts
@@ -137,12 +142,29 @@ void sleep() {
     sleep_disable();  // Clear SE bit
 }
 
+void cursor_next() {
+    game_cursor++;
+    if (game_cursor >= LED_CNT) {
+        game_cursor = 0;
+    }
+}
+
+void cursor_prev() {
+    game_cursor--;
+    if (game_cursor < 0) {
+        game_cursor = LED_CNT - 1;
+    }
+}
+
 void game_do_init() {
-    if (timer_ovf_cnt > SPIN_TIME) {
-        // Move lights counter-clockwise
-        game_cursor--;
-        if (game_cursor < 0) {
-            game_start();
+    if (timer_ovf_cnt > INIT_SPIN_TIME) {
+        cursor_next();
+
+        if (game_cursor == game_target) {
+            game_init_cnt++;
+            if (game_init_cnt > INIT_SPIN_NUM) {
+                game_start();
+            }
         }
 
         // Reset IRQ counter
@@ -158,34 +180,45 @@ void game_do_active() {
 
     if (timer_ovf_cnt > (CURSOR_TIME_BASE - game_stage * CURSOR_TIME_STAGE_DELTA)) {
         // Move lights clockwise
-        game_cursor++;
-        if (game_cursor >= LED_CNT) {
-            game_cursor = 0;
+        if (game_dir) {
+            cursor_next();
+        } else {
+            cursor_prev();
         }
 
         // Reset IRQ counter
         timer_ovf_cnt = 0;
     }
 
-    // Read button
-    if (!GET_BIT(PINB, PIN_BTN)) {
-        if (btn_pressed_cnt > BTN_DEBOUNCE_NUM) {
-            if (game_cursor == game_target) {
-                game_state = GAME_HIT;
-            } else {
-                game_init();
-            }
-            idle_time = 0;
-            btn_pressed_cnt = 0;
-        } else {
+    // De-bounce button
+    if (!GET_BIT(PINB, BTN_PIN)) {
+        if (btn_pressed_cnt < BTN_DEBOUNCE_NUM) {
             btn_pressed_cnt++;
+        } else {
+            btn_state = 1;
         }
     } else {
-        btn_pressed_cnt = 0;
+        if (btn_pressed_cnt > 0) {
+            btn_pressed_cnt--;
+        } else {
+            btn_state = 0;
+        }
     }
 
+    if (btn_state == 1 && btn_old_state == 0) {
+        // Positive edge
+        if (game_cursor == game_target) {
+            game_stage_next();
+        } else {
+            game_state = GAME_FAIL;
+        }
+        idle_time = 0;
+    }
+
+    btn_old_state = btn_state;
+
     // Tooggle between target and cursor
-    if (timer_ovf_cnt & 1) {
+    if ((timer_ovf_cnt & 15) == 1) {
         led_set_index(game_target);
     } else {
         led_set_index(game_cursor);
@@ -198,9 +231,9 @@ void game_do_active() {
     }
 }
 
-void game_do_hit() {
-    if (timer_ovf_cnt > (HIT_TIME_BASE - game_stage * HIT_TIME_STAGE_DELTA)) {
-        game_stage_next();
+void game_do_fail() {
+    if (timer_ovf_cnt > (FAIL_TIME)) {
+        game_init();
 
         // Reset IRQ counter
         timer_ovf_cnt = 0;
@@ -208,7 +241,7 @@ void game_do_hit() {
 
     // Program the LED
     if (GET_BIT(timer_ovf_cnt, 7)) {
-        led_set_index(game_target);
+        led_set_index(game_cursor);
     } else {
         led_off();
     }
@@ -232,8 +265,8 @@ int main() {
                     game_do_active();
                     break;
 
-                case GAME_HIT:
-                    game_do_hit();
+                case GAME_FAIL:
+                    game_do_fail();
                     break;
             }
 
