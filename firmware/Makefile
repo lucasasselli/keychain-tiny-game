@@ -2,7 +2,7 @@ DEVICE     = attiny25
 PROGRAMMER = stk500v1
 BAUD       = 9600
 FILENAME   = main
-COMPILE    = avr-gcc -Wall -Os -mmcu=$(DEVICE)
+COMPILE    = avr-gcc -Wall -Wextra -Os -mmcu=$(DEVICE)
 
 all: build upload
 
@@ -13,6 +13,7 @@ build:
 	avr-size --format=avr --mcu=$(DEVICE) $(FILENAME).elf
 
 upload:
+	# avrdude -v -p $(DEVICE) -c $(PROGRAMMER) -P $(PORT) -b $(BAUD) -U flash:w:$(FILENAME).hex:i -U hfuse:w:0x5f:m
 	avrdude -v -p $(DEVICE) -c $(PROGRAMMER) -P $(PORT) -b $(BAUD) -U flash:w:$(FILENAME).hex:i
 
 clean:

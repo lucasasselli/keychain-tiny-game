@@ -55,19 +55,21 @@ typedef enum {
     GAME_WIN
 } game_state_t;
 
+// Game
 game_state_t game_state;  // Current game state
-int game_init_cnt;        // Number of loops furing init animation
-int game_stage;           // Stage
-int game_target;          // Target light position
-int game_cursor;          // Cursor light position
-int game_dir;             // Cursor direction
+uint8_t game_init_cnt;    // Number of loops furing init animation
+uint8_t game_stage;       // Stage
+uint8_t game_target;      // Target light position
+uint8_t game_cursor;      // Cursor light position
+uint8_t game_dir;         // Cursor direction
 
-int idle_time = 0;
-int timer_ovf_cnt = 0;
+uint16_t idle_time = 0;
+uint16_t timer_ovf_cnt = 0;
 
-int btn_pressed_cnt;
-int btn_state;
-int btn_old_state;
+// Button
+uint8_t btn_pressed_cnt;  // De-bounce counter
+uint8_t btn_state;        // Button filtered state
+uint8_t btn_old_state;    // Button old state (for edge detection)
 
 void game_target_rand() {
     game_target = rand() % LED_CNT;  // Pick a new target
@@ -95,29 +97,12 @@ void game_init() {
     game_target_rand();  // Pick a random target
 }
 
-void game_start() {
-    game_state = GAME_ACTIVE;
-    game_stage = 0;  // Start from stage 0
-}
-
-void game_stage_next() {
-    game_dir ^= 1;       // Change direction
-    game_target_rand();  // Pick a random target
-
-    game_stage++;  // Increase the stage
-    if (game_stage > GAME_MAX_STAGES) {
-        game_state = GAME_WIN;
-    } else {
-        game_state = GAME_ACTIVE;
-    }
-}
-
 void led_off() {
     PORTB &= (1 << BTN_PIN);
     DDRB &= (1 << BTN_PIN);
 }
 
-void led_set_index(int i) {
+void led_set_index(uint8_t i) {
     uint8_t val = PORTB & (1 << BTN_PIN);
     uint8_t dir = DDRB & (1 << BTN_PIN);
 
@@ -130,14 +115,14 @@ void led_set_index(int i) {
 }
 
 void sleep() {
+    // Configure IO
     GIMSK |= _BV(PCIE);    // Enable Pin Change Interrupts
     PCMSK |= _BV(PCINT0);  // Use PB0 as interrupt pin
 
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // replaces above statement
+    DDRB = 0;                // Stop driving any LED
+    PORTB = (1 << BTN_PIN);  // Button as input
 
-    // Set button
-    DDRB = 0;  // All inputs
-    PORTB = (1 << BTN_PIN);
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
     sleep_enable();  // Sets the Sleep Enable bit in the MCUCR Register (SE BIT)
     sei();           // Enable interrupts
@@ -148,16 +133,18 @@ void sleep() {
 }
 
 void cursor_next() {
-    game_cursor++;
-    if (game_cursor >= LED_CNT) {
+    if (game_cursor == LED_CNT) {
         game_cursor = 0;
+    } else {
+        game_cursor++;
     }
 }
 
 void cursor_prev() {
-    game_cursor--;
-    if (game_cursor < 0) {
+    if (game_cursor == 0) {
         game_cursor = LED_CNT - 1;
+    } else {
+        game_cursor--;
     }
 }
 
@@ -168,7 +155,9 @@ void game_do_init() {
         if (game_cursor == game_target) {
             game_init_cnt++;
             if (game_init_cnt > INIT_SPIN_NUM) {
-                game_start();
+                // Init animation complete! Start the game...
+                game_state = GAME_ACTIVE;
+                game_stage = 0;  // Start from stage 0
             }
         }
 
@@ -183,7 +172,7 @@ void game_do_init() {
 void game_do_active() {
     idle_time++;
 
-    if (timer_ovf_cnt > (CURSOR_TIME_BASE - game_stage * CURSOR_TIME_STAGE_DELTA)) {
+    if (timer_ovf_cnt > (CURSOR_TIME_BASE - ((uint16_t)game_stage) * CURSOR_TIME_STAGE_DELTA)) {
         // Move lights clockwise
         if (game_dir) {
             cursor_next();
@@ -213,8 +202,17 @@ void game_do_active() {
     if (btn_state == 1 && btn_old_state == 0) {
         // Positive edge
         if (game_cursor == game_target) {
-            game_stage_next();
+            // Target hit! Move to next stage...
+            game_dir ^= 1;       // Change direction
+            game_target_rand();  // Pick a random target
+
+            game_stage++;  // Increase the stage
+            if (game_stage > GAME_MAX_STAGES) {
+                // Game over! Show the win animation...
+                game_state = GAME_WIN;
+            }
         } else {
+            // Target missed! Set state to fail...
             game_state = GAME_FAIL;
         }
         idle_time = 0;
@@ -222,8 +220,8 @@ void game_do_active() {
 
     btn_old_state = btn_state;
 
-    // Tooggle between target and cursor
-    if ((timer_ovf_cnt & 15) == 1) {
+    // Tooggle between target and cursor, but keep cursor active more!
+    if ((timer_ovf_cnt & 7) == 1) {
         led_set_index(game_target);
     } else {
         led_set_index(game_cursor);
@@ -238,13 +236,11 @@ void game_do_active() {
 
 void game_do_fail() {
     if (timer_ovf_cnt > FAIL_TIME) {
-        game_init();
-
-        // Reset IRQ counter
-        timer_ovf_cnt = 0;
+        // Win animation complete! Start again
+        game_init();  // Reset game
     }
 
-    // Program the LED
+    // Blink last cursor LED
     if (GET_BIT(timer_ovf_cnt, 7)) {
         led_set_index(game_cursor);
     } else {
@@ -254,13 +250,11 @@ void game_do_fail() {
 
 void game_do_win() {
     if (timer_ovf_cnt > WIN_TIME) {
-        game_init();
-
-        // Reset IRQ counter
-        timer_ovf_cnt = 0;
+        // Win animation complete! Start again
+        game_init();  // Reset game
     }
 
-    // Program the LED
+    // Blink all LEDs
     if (GET_BIT(timer_ovf_cnt, 7)) {
         cursor_next();
         led_set_index(game_cursor);
