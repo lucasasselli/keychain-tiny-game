@@ -73,6 +73,9 @@ uint8_t btn_old_state;    // Button old state (for edge detection)
 
 void game_target_rand() {
     game_target = rand() % LED_CNT;  // Pick a new target
+#ifdef SKIP_RST_PIN
+    if ((game_target % 4) == 3) game_target_rand();
+#endif
 }
 
 void game_init() {
@@ -119,8 +122,7 @@ void sleep() {
     GIMSK |= _BV(PCIE);    // Enable Pin Change Interrupts
     PCMSK |= _BV(PCINT0);  // Use PB0 as interrupt pin
 
-    DDRB = 0;                // Stop driving any LED
-    PORTB = (1 << BTN_PIN);  // Button as input
+    DDRB = 0;  // All pin on High-Z
 
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
@@ -138,6 +140,10 @@ void cursor_next() {
     } else {
         game_cursor++;
     }
+
+#ifdef SKIP_RST_PIN
+    if ((game_cursor % 4) == 3) cursor_next();
+#endif
 }
 
 void cursor_prev() {
@@ -146,6 +152,9 @@ void cursor_prev() {
     } else {
         game_cursor--;
     }
+#ifdef SKIP_RST_PIN
+    if ((game_cursor % 4) == 3) cursor_prev();
+#endif
 }
 
 void game_do_init() {
