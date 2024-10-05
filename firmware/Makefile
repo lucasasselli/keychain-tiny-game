@@ -5,6 +5,9 @@ FILENAME   = main
 CC		   = avr-gcc	
 CFLAGS     = -Wall -Wextra -Os -mmcu=$(DEVICE)
 
+# RSTPIN is used to drive the LEDs in the game, and requires RSTDSBL fuse to be set.
+# This breaks ISP programming so we do it only for the final release. Normally, the 
+# game will skit the LEDs tied to reset pin.
 ifeq ($(TYPE),Release)
 	PROG_ARGS = -U hfuse:w:0x5f:m
 else
