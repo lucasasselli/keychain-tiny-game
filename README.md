@@ -1,5 +1,9 @@
 # Keychain Tiny Game
 
+<p align="center">
+  <img src="img/gameplay.gif" width="300" />
+</p>
+
 # Features
 - Beautiful state of the art 1D graphics
 - One button gameplay
@@ -16,3 +20,7 @@ Press the button when the spinning light reaches the target. Do it again slightl
 
 # Hardware
 The board utilizes an ATtiny microcontroller to drive 16 LEDs via Charlieplexing. A single button on the back of the board allows for game control. The device is powered by a single CR2032 coin cell battery.
+
+<p align="center">
+  <img src="img/circuit.png" width="600" />
+</p>
