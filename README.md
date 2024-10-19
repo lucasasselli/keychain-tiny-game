@@ -19,7 +19,7 @@ This keychain isn’t just a time-wasting game for dentist appointments, it’s 
 Press the button when the spinning light reaches the target. Do it again slightly faster. Repeat until it's your turn at the dentist, doctor, barber, etc...
 
 # Hardware
-The board utilizes an ATtiny microcontroller to drive 16 LEDs via Charlieplexing. A single button on the back of the board allows for game control. The device is powered by a single CR2032 coin cell battery.
+The board utilizes an ATtiny25 microcontroller running at 1MHz to drive 16 LEDs via [Charlieplexing](https://en.wikipedia.org/wiki/Charlieplexing). A single button on the back of the board allows for game control. The device is powered by a single CR2032 coin cell battery.
 
 <p align="center">
   <img src="img/circuit.png" width="600" />
