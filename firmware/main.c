@@ -109,9 +109,9 @@ void led_set_index(uint8_t i) {
     uint8_t val = PORTB & (1 << BTN_PIN);
     uint8_t dir = DDRB & (1 << BTN_PIN);
 
-    SET_BIT(val, cplex_pins[i][1]);
-    SET_BIT(dir, cplex_pins[i][1]);
+    SET_BIT(val, cplex_pins[i][0]);
     SET_BIT(dir, cplex_pins[i][0]);
+    SET_BIT(dir, cplex_pins[i][1]);
 
     PORTB = val;
     DDRB = dir;
